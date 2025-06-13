@@ -13,7 +13,6 @@ const publicRoutes = [
     { path: '/login', whenAuthenticated: Action.REDIRECT }, // public route but redirect if authenticated
     { path: '/register', whenAuthenticated: Action.REDIRECT }, 
     { path: '/', whenAuthenticated: Action.NEXT }, // public route and do nothing if authenticated
-    { path: '/chat', whenAuthenticated: Action.NEXT },
 ] as const
 
 export function middleware(request: NextRequest) {

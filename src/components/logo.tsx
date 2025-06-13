@@ -8,15 +8,18 @@ export const Logo = ({ className }: { className?: string }) => {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            xmlns="http://www.w3.org/2000/svg">
+            xmlns="http://www.w3.org/2000/svg"
+            >
+            <rect x="3" y="10" width="4" height="4" rx="1" strokeWidth="1" />
+            <rect x="9" y="8" width="4" height="6" rx="1" strokeWidth="1" />
+            <rect x="15" y="6" width="4" height="8" rx="1" strokeWidth="1" />
             <path
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth="2" 
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                d="M3 18h18v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1z"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
             />
         </svg>
-        
     )
 }
 
