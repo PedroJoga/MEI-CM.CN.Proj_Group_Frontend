@@ -525,48 +525,108 @@ export function DataTable({
 }
 
 function TableCellViewer({ item, updateDataItem }: { item: z.infer<typeof schema>, updateDataItem?: (item: z.infer<typeof schema>) => void}) {
-  const isMobile = useIsMobile()
-
+  const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = React.useState(false);
+  const [formData, setFormData] = React.useState(item);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  
+  // Environment variables state
+  const [envVars, setEnvVars] = useState<{id: string, key: string, value: string}[]>([]);
+  const [newEnvVar, setNewEnvVar] = useState({key: '', value: ''});
+  const [editingEnvVar, setEditingEnvVar] = useState<string | null>(null);
 
-  const [formData, setFormData] = React.useState(item); // Initialize with current item
+  // Fetch environment variables when drawer opens
+  React.useEffect(() => {
+    if (isOpen) {
+      fetchEnvVars();
+    }
+  }, [isOpen]);
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const fetchEnvVars = async () => {
+    try {
+      const response = await api.get(`/environmentvariables/container/${item.id}`);
+      setEnvVars(response.data);
+    } catch (err) {
+      setError("Failed to load environment variables. " + err);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target
+    const { id, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [id]: id === "exposedPort" ? Number(value) : value
-    }))
-  }
+    }));
+  };
+
+  const handleEnvVarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewEnvVar(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddEnvVar = async () => {
+    if (!newEnvVar.key || !newEnvVar.value) return;
+    
+    try {
+      setLoading(true);
+      await api.post(`/environmentvariables/container/${item.id}`, newEnvVar);
+      await fetchEnvVars();
+      setNewEnvVar({key: '', value: ''});
+    } catch (err) {
+      setError("Failed to add environment variable. " + err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditEnvVar = async (id: string, updatedVar: {key: string, value: string}) => {
+    try {
+      setLoading(true);
+      await api.put(`/environmentvariables/${id}`, updatedVar);
+      await fetchEnvVars();
+      setEditingEnvVar(null);
+    } catch (err) {
+      setError("Failed to update environment variable. " + err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteEnvVar = async (id: string) => {
+    try {
+      setLoading(true);
+      await api.delete(`/environmentvariables/${id}`);
+      await fetchEnvVars();
+    } catch (err) {
+      setError("Failed to delete environment variable. " + err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
-    setLoading(true)
-    setError(null)
-    setSuccess(false)
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
 
     try {
       const response = await api.put(`/containers/${item.id}`, formData);
-      const updatedItem = response.data; // Assuming your API returns the updated item
+      const updatedItem = response.data;
 
-      // Update local state
       if (updateDataItem) {
         updateDataItem(updatedItem);
       }
 
-      setSuccess(true)
-
-      //setTimeout(() => setIsOpen(false), 1000); // Close the drawer after a short delay to show success message
-      setIsOpen(false); // Close the drawer
+      setSuccess(true);
+      setIsOpen(false);
     } catch (err) {
-      setError("Erro ao salvar container." + err)
+      setError("Erro ao salvar container." + err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <Drawer open={isOpen} onOpenChange={setIsOpen} direction={isMobile ? "bottom" : "right"}>
@@ -575,40 +635,147 @@ function TableCellViewer({ item, updateDataItem }: { item: z.infer<typeof schema
           {item.name}
         </Button>
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="gap-1">
           <DrawerTitle>{item.name}</DrawerTitle>
           <DrawerDescription>
-            Showing total visitors for the last 6 months
+            Container configuration and environment variables
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
-        <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="header">Name</Label>
-              <Input id="name" defaultValue={item.name} onChange={handleChange} />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="header">Sub domain</Label>
-              <Input id="subDomain" defaultValue={item.subDomain} onChange={handleChange} />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="header">Docker image</Label>
-              <Input id="dockerImage" defaultValue={item.dockerImage} onChange={handleChange} />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Label htmlFor="header">Exposed port</Label>
-              <Input id="exposedPort" defaultValue={item.exposedPort} onChange={handleChange} />
-            </div>
-          </form>
-
+          <Tabs defaultValue="configuration">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="configuration">Configuration</TabsTrigger>
+              <TabsTrigger value="environment">Environment Variables</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="configuration">
+              <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="name">Name</Label>
+                  <Input id="name" value={formData.name} onChange={handleChange} />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="subDomain">Sub domain</Label>
+                  <Input id="subDomain" value={formData.subDomain} onChange={handleChange} />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="dockerImage">Docker image</Label>
+                  <Input id="dockerImage" value={formData.dockerImage} onChange={handleChange} />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Label htmlFor="exposedPort">Exposed port</Label>
+                  <Input 
+                    id="exposedPort" 
+                    type="number"
+                    value={formData.exposedPort} 
+                    onChange={handleChange} 
+                  />
+                </div>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="environment">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3">
+                  <Label>Add New Environment Variable</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      name="key"
+                      placeholder="Key"
+                      value={newEnvVar.key}
+                      onChange={handleEnvVarChange}
+                    />
+                    <Input
+                      name="value"
+                      placeholder="Value"
+                      value={newEnvVar.value}
+                      onChange={handleEnvVarChange}
+                    />
+                    <Button 
+                      onClick={handleAddEnvVar} 
+                      disabled={!newEnvVar.key || !newEnvVar.value || loading}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Environment Variables</Label>
+                  {envVars.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No environment variables</p>
+                  ) : (
+                    <div className="rounded-lg border">
+                      {envVars.map((envVar) => (
+                        <div key={envVar.id} className="flex items-center justify-between p-3 border-b last:border-b-0">
+                          {editingEnvVar === envVar.id ? (
+                            <div className="flex flex-1 gap-2">
+                              <Input
+                                name="key"
+                                value={newEnvVar.key}
+                                onChange={handleEnvVarChange}
+                              />
+                              <Input
+                                name="value"
+                                value={newEnvVar.value}
+                                onChange={handleEnvVarChange}
+                              />
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleEditEnvVar(envVar.id, newEnvVar)}
+                              >
+                                Save
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setEditingEnvVar(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-1">
+                                <span className="font-medium">{envVar.key}</span>=<span>{envVar.value}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingEnvVar(envVar.id);
+                                    setNewEnvVar({key: envVar.key, value: envVar.value});
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleDeleteEnvVar(envVar.id)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
           {success && <p className="text-sm text-green-500">Salvo com sucesso!</p>}
         </div>
         <DrawerFooter>
-        <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? "Saving..." : "Save"}
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Saving..." : "Save Configuration"}
           </Button>
           <DrawerClose asChild>
             <Button variant="outline">Close</Button>
@@ -616,7 +783,7 @@ function TableCellViewer({ item, updateDataItem }: { item: z.infer<typeof schema
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
-  )
+  );
 }
 
 function CreateContainerDrawer({ onCreate }: { onCreate: (container: Omit<z.infer<typeof schema>, 'id'>) => Promise<z.infer<typeof schema>>  }) {
