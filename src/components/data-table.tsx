@@ -280,6 +280,21 @@ export function DataTable({
     );
   }
 
+  const createNewContainer = async (newContainer: Omit<z.infer<typeof schema>, 'id'>) => {
+    try {
+      const response = await api.post('/containers', newContainer);
+      const createdContainer = response.data;
+      
+      // Add the new container to your local state
+      setData(currentData => [...currentData, createdContainer]);
+      
+      return createdContainer;
+    } catch (error) {
+      console.error('Failed to create container:', error);
+      throw error;
+    }
+  };
+
   const table = useReactTable({
     data,
     columns: columns(handleDelete, updateDataItem),
@@ -371,10 +386,7 @@ export function DataTable({
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm">
-            <IconPlus />
-            <span className="hidden lg:inline">New Application</span>
-          </Button>
+          <CreateContainerDrawer onCreate={createNewContainer} />
         </div>
       </div>
       <TabsContent
@@ -605,4 +617,122 @@ function TableCellViewer({ item, updateDataItem }: { item: z.infer<typeof schema
       </DrawerContent>
     </Drawer>
   )
+}
+
+function CreateContainerDrawer({ onCreate }: { onCreate: (container: Omit<z.infer<typeof schema>, 'id'>) => Promise<z.infer<typeof schema>>  }) {
+  const isMobile = useIsMobile();
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [formData, setFormData] = React.useState<Omit<z.infer<typeof schema>, 'id'>>({
+    name: '',
+    subDomain: '',
+    dockerImage: '',
+    exposedPort: 0,
+    status: 'Pending' // Default status
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [id]: id === "exposedPort" ? Number(value) : value
+    }));
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await onCreate(formData);
+      setIsOpen(false);
+      // Reset form
+      setFormData({
+        name: '',
+        subDomain: '',
+        dockerImage: '',
+        exposedPort: 0,
+        status: 'Pending'
+      });
+    } catch (err) {
+      setError("Failed to create container. Please try again." + err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Drawer open={isOpen} onOpenChange={setIsOpen} direction={isMobile ? "bottom" : "right"}>
+      <DrawerTrigger asChild>
+        <Button variant="outline" size="sm" className="ml-2">
+          <IconPlus />
+          <span className="hidden lg:inline">New Application</span>
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader className="gap-1">
+          <DrawerTitle>Create New Container</DrawerTitle>
+          <DrawerDescription>
+            Fill in the details for your new application container
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
+          <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="name">Name</Label>
+              <Input 
+                id="name" 
+                value={formData.name} 
+                onChange={handleChange} 
+                placeholder="My Application" 
+                required 
+              />
+            </div>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="subDomain">Sub domain</Label>
+              <Input 
+                id="subDomain" 
+                value={formData.subDomain} 
+                onChange={handleChange} 
+                placeholder="myapp" 
+                required 
+              />
+            </div>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="dockerImage">Docker image</Label>
+              <Input 
+                id="dockerImage" 
+                value={formData.dockerImage} 
+                onChange={handleChange} 
+                placeholder="nginx:latest" 
+                required 
+              />
+            </div>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="exposedPort">Exposed port</Label>
+              <Input 
+                id="exposedPort" 
+                type="number"
+                value={formData.exposedPort} 
+                onChange={handleChange} 
+                placeholder="8080" 
+                required 
+              />
+            </div>
+          </form>
+
+          {error && <p className="text-sm text-red-500">{error}</p>}
+        </div>
+        <DrawerFooter>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Creating..." : "Create Container"}
+          </Button>
+          <DrawerClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
 }
