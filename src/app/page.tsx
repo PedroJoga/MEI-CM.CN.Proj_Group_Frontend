@@ -27,7 +27,7 @@ export default function Home() {
                   as="h1"
                   className="mt-8 max-w-2xl text-balance text-3 xl font-medium md:text-6xl lg:mt-16"
                 >
-                  Host your applications, bring your ideas to life
+                  Host your containers, bring your applications to life
                 </TextEffect>
                 <TextEffect
                   per="line"
