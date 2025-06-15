@@ -58,7 +58,7 @@ export default function Page() {
                 )}
 
                 {!loading && !error && (
-                  <DataTable data={containers} reloadData={loadContainers} />
+                  <DataTable data={containers} />
                 )}
               </div>
             </div>

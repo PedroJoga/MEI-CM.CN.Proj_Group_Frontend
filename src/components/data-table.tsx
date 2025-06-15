@@ -126,7 +126,7 @@ function DragHandle({ id }: { id: number }) {
   )
 }
 
-const columns: ColumnDef<z.infer<typeof schema>>[] = [
+const columns = (handleDelete: (id: number) => void, updateDataItem: (item: z.infer<typeof schema>) => void): ColumnDef<z.infer<typeof schema>>[] => [
   {
     id: "drag",
     header: () => null,
@@ -136,7 +136,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: "name",
     header: "Name",
     cell: ({ row }) => {
-      return <TableCellViewer item={row.original} />
+      return <TableCellViewer item={row.original} updateDataItem={updateDataItem} />
     },
     enableHiding: false,
   },
@@ -183,7 +183,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     id: "actions",
-    cell: () => (
+    cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -199,7 +199,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           <DropdownMenuItem>Start</DropdownMenuItem>
           <DropdownMenuItem>Shutdown</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleDelete(row.original.id)} variant="destructive">Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -232,11 +232,9 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 }
 
 export function DataTable({
-  data: initialData,
-  reloadData,
+  data: initialData
 }: {
-  data: z.infer<typeof schema>[],
-  reloadData: () => void
+  data: z.infer<typeof schema>[]
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -262,9 +260,29 @@ export function DataTable({
     [data]
   )
 
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/containers/${id}`);
+      // Update local state to remove the deleted item
+      setData(data.filter(item => item.id !== id));
+      // Optionally show a success message
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      // Optionally show an error message
+    }
+  }
+
+  const updateDataItem = (updatedItem: z.infer<typeof schema>) => {
+    setData(currentData => 
+      currentData.map(item => 
+        item.id === updatedItem.id ? updatedItem : item
+      )
+    );
+  }
+
   const table = useReactTable({
     data,
-    columns,
+    columns: columns(handleDelete, updateDataItem),
     state: {
       sorting,
       columnVisibility,
@@ -494,24 +512,12 @@ export function DataTable({
   )
 }
 
-type Container = {
-  id: number
-  name: string
-  subDomain: string
-  dockerImage: string
-  exposedPort: number
-}
-
-function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
+function TableCellViewer({ item, updateDataItem }: { item: z.infer<typeof schema>, updateDataItem?: (item: z.infer<typeof schema>) => void}) {
   const isMobile = useIsMobile()
 
-  const [formData, setFormData] = useState<Container>({
-    id: item?.id,
-    name: item?.name || "",
-    subDomain: item?.subDomain || "",
-    dockerImage: item?.dockerImage || "",
-    exposedPort: item?.exposedPort || 0,
-  })
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const [formData, setFormData] = React.useState(item); // Initialize with current item
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -531,12 +537,18 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
     setSuccess(false)
 
     try {
-      if (item?.id) {
-        await api.put(`/containers/${item.id}`, formData)
-      } else {
-        await api.post("/containers", formData)
+      const response = await api.put(`/containers/${item.id}`, formData);
+      const updatedItem = response.data; // Assuming your API returns the updated item
+
+      // Update local state
+      if (updateDataItem) {
+        updateDataItem(updatedItem);
       }
+
       setSuccess(true)
+
+      //setTimeout(() => setIsOpen(false), 1000); // Close the drawer after a short delay to show success message
+      setIsOpen(false); // Close the drawer
     } catch (err) {
       setError("Erro ao salvar container." + err)
     } finally {
@@ -544,9 +556,8 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
     }
   }
 
-
   return (
-    <Drawer direction={isMobile ? "bottom" : "right"}>
+    <Drawer open={isOpen} onOpenChange={setIsOpen} direction={isMobile ? "bottom" : "right"}>
       <DrawerTrigger asChild>
         <Button variant="link" className="text-foreground w-fit px-0 text-left">
           {item.name}
