@@ -635,7 +635,7 @@ function TableCellViewer({ item, updateDataItem }: { item: z.infer<typeof schema
           {item.name}
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent>
         <DrawerHeader className="gap-1">
           <DrawerTitle>{item.name}</DrawerTitle>
           <DrawerDescription>
