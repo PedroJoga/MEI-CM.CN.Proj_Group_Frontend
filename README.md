@@ -1,20 +1,25 @@
-# 📦 Project Setup
+# ContainerCraft
 
-## 🚀 How to run
+## 📦 Project Setup
+
+## 🚀 How to run the project in kubernetes
 
 1. **Copy the `.env` file**:
 
 ```bash
 cp .env.example .env
-Deploy the project:
 ```
 
-Change the API URL in `.env` if needed
+Change the NEXT_PUBLIC_API_URL in `.env` if needed
 
-2. **Deploy the project**:
+Change the DOCKER_HUB_USER in `.env` for your docker hub username
+
+2. **Push the project to docker hub**:
 
 ```bash
-make deploy
+make push
 ```
+
+3. **Follow [Backend Repository](https://github.com/PedroJoga/MEI-CM.CN.Proj_Group_Backend) README to continue deployment**:
 
 That's it!
